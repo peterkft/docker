@@ -13,7 +13,7 @@ cargo fmt --version
 node --version
 npm --version
 echo "zig $(zig version)"
-cargo zigbuild --version
+cargo-zigbuild --version
 
 # The libraries Tauri links against on Linux.
 pkg-config --print-errors --exists webkit2gtk-4.1 ayatana-appindicator3-0.1 librsvg-2.0 openssl
