@@ -1,0 +1,128 @@
+# Builds the images under images/, smoke-tests them and publishes them to
+# GitHub's container registry. The folder name is the image name.
+#   push to a branch     build and smoke-test the images whose folder changed
+#                        (all of them when this workflow changes)
+#   tag <image>/vX.Y.Z   build, smoke-test and publish that image as
+#                        ghcr.io/<owner>/<image>:X.Y.Z and :latest
+#   manual run           build and smoke-test one image, or all of them
+name: Images
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["*/v*.*.*"]
+    paths: ["images/**", ".github/workflows/images.yml"] # not applied to tags
+  workflow_dispatch:
+    inputs:
+      image:
+        description: Folder under images/ (empty for all)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+defaults:
+  run:
+    shell: bash # -eo pipefail; the implicit default has no pipefail
+
+jobs:
+  select:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      images: ${{ steps.select.outputs.images }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # to diff against the previous push
+
+      - name: Pick the images to build
+        id: select
+        env:
+          BEFORE: ${{ github.event.before }}
+          REQUESTED: ${{ inputs.image }}
+        run: |
+          all="$(find images -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            if [[ ! "$GITHUB_REF_NAME" =~ ^([a-z0-9][a-z0-9._-]*)/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Image tags look like tauri-builder/v1.2.3, not $GITHUB_REF_NAME"
+              exit 1
+            fi
+            selected="${BASH_REMATCH[1]}"
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            selected="${REQUESTED:-$all}"
+          elif [[ "$BEFORE" =~ ^0*$ ]] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
+              || git diff --name-only "$BEFORE" "$GITHUB_SHA" | grep -Fqx .github/workflows/images.yml; then
+            selected="$all" # a new branch, rewritten history or a workflow change
+          else
+            selected="$(git diff --name-only "$BEFORE" "$GITHUB_SHA" | sed -n 's|^images/\([^/]*\)/.*|\1|p')"
+          fi
+
+          # Keep only names that still have a folder: a push can delete an image.
+          images="$(comm -12 <(printf '%s\n' "$all") <(printf '%s\n' "$selected" | sort -u))"
+          if [[ -z "$images" && ( "$GITHUB_EVENT_NAME" == workflow_dispatch || "$GITHUB_REF" == refs/tags/* ) ]]; then
+            echo "::error::There is no folder images/$selected"
+            exit 1
+          fi
+          json="$(printf '%s\n' "$images" | jq -cnR '[inputs | select(length > 0)]')"
+          echo "images=$json" >> "$GITHUB_OUTPUT"
+          echo "Images to build: $json"
+
+  build:
+    needs: select
+    if: needs.select.outputs.images != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write # publish to ghcr.io on a tag
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.select.outputs.images) }}
+    env:
+      IMAGE: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build
+        run: |
+          version="ci-${GITHUB_SHA::8}"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then version="${GITHUB_REF_NAME#*/v}"; fi
+          # The source label links the package to this repository on first publish.
+          docker build --pull \
+            --build-arg IMAGE_VERSION="$version" \
+            --label org.opencontainers.image.source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" \
+            -t "$IMAGE:ci" "images/$IMAGE"
+
+      - name: Smoke test
+        # As the runner's own user and as an arbitrary one: images must work for any UID.
+        run: |
+          for user in "$(id -u):$(id -g)" 12345:12345; do
+            echo "::group::Smoke test as $user"
+            docker run --rm --user "$user" -v "$PWD/images/$IMAGE/smoke.sh:/smoke.sh:ro" "$IMAGE:ci" bash /smoke.sh
+            echo "::endgroup::"
+          done
+
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE" # registry paths are lower case
+          version="${GITHUB_REF_NAME#*/v}"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for tag in "$version" latest; do
+            docker tag "$IMAGE:ci" "$image:$tag"
+            docker push "$image:$tag"
+          done
+          echo "Published \`$image:$version\`" >> "$GITHUB_STEP_SUMMARY"
