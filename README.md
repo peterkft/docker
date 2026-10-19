@@ -31,6 +31,7 @@ Every image keeps these promises, so a project's build script works with any of 
 | Home | `HOME=/home/builder`, writable by any user. |
 | Caches a project may mount | `/home/builder/.cache` and `/home/builder/.npm`; in Rust images also `/usr/local/cargo/registry` and `/usr/local/cargo/git`. Each exists in the image and is writable by any user, so a new named volume starts with those permissions. |
 | Scratch | `/cache`, writable by any user, for example for `CARGO_TARGET_DIR=/cache/target`. |
+| Mounting volumes | Mount each volume on one of the folders above, not on a path below it. A new volume mounted on a path the image doesn't have, such as `/cache/target`, is owned by root, so a non-root user can't write to it. |
 | Version | `BUILDER_IMAGE_VERSION` in the environment, plus the OCI labels `version`, `source` and `revision`. |
 | Entrypoint | None. The project passes the command. |
 
