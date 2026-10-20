@@ -40,7 +40,7 @@ A project typically runs:
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/src" \
   -v myproject-cargo-registry:/usr/local/cargo/registry \
-  ghcr.io/peterkft/tauri-builder:1.0.0 bash scripts/build.sh
+  ghcr.io/peterkft/tauri-builder:latest bash scripts/build.sh
 ```
 
 ## Versions
@@ -80,6 +80,6 @@ Add a folder under `images/` with a `Dockerfile` that keeps the image contract, 
 ## GitHub setup
 
 - The packages are private.
-- The first tag of an image creates its package, linked to this repository.
+- An image's first publish, when it first reaches `main`, creates its package, linked to this repository.
 - **Give a project access:** for each project that builds in an image, open the package on github.com: your profile → **Packages** → the image → **Package settings**. Under **Manage Actions access**, add the project's repository with the role **Read**. Its workflow can then pull the image with its own `GITHUB_TOKEN`, given `packages: read`.
 - **Developer login:** developers log in once with `docker login ghcr.io -u <GitHub user>`, using a personal access token (classic) with only the `read:packages` scope as the password.

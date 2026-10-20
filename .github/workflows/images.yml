@@ -82,7 +82,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-      packages: write # publish to ghcr.io on a tag
+      packages: write # publish to ghcr.io from main and from tags
     strategy:
       fail-fast: false
       matrix:
