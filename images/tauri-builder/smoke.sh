@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Smoke test for the tauri-builder image. The Images workflow runs it inside
-# the image as non-root users: the runner's own UID and an arbitrary one.
+# Smoke test for the tauri-builder image. The Images workflow pulls the image
+# it just pushed and runs this inside it as non-root users: the runner's own
+# UID and an arbitrary one.
 #   docker run --rm --user "$(id -u):$(id -g)" \
 #     -v "$PWD/images/tauri-builder/smoke.sh:/smoke.sh:ro" tauri-builder:dev bash /smoke.sh
 set -euo pipefail

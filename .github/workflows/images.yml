@@ -1,11 +1,14 @@
 # Builds the images under images/, smoke-tests them and publishes them to
 # GitHub's container registry. The folder name is the image name.
-#   push to a branch     build and smoke-test the images whose folder changed
-#                        (all of them when this workflow changes)
-#   push to main         the same, then publish each image built as
-#                        ghcr.io/<owner>/<image>:latest and :sha-<commit>
-#   tag <image>/vX.Y.Z   build, smoke-test and publish that image as :X.Y.Z
-#   manual run           build and smoke-test one image, or all of them
+#   push to a branch     build the images whose folder changed (all of them
+#                        when this workflow changes) and push each as
+#                        ghcr.io/<owner>/<image>:ci-<run id>; a separate job
+#                        pulls it on a fresh runner and smoke-tests it
+#   push to main         the same, then tag each image that passed as
+#                        :latest and :sha-<commit>
+#   tag <image>/vX.Y.Z   the same for that image, tagged :X.Y.Z
+#   manual run           build, push and smoke-test one image, or all of
+#                        them; on main, also tag them as on a push to main
 name: Images
 
 on:
@@ -22,6 +25,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  CANDIDATE_TAG: ci-${{ github.run_id }} # what this run builds and tests
 
 concurrency:
   group: images-${{ github.ref }}
@@ -82,7 +88,7 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-      packages: write # publish to ghcr.io from main and from tags
+      packages: write # push the candidate to ghcr.io
     strategy:
       fail-fast: false
       matrix:
@@ -98,28 +104,82 @@ jobs:
         run: |
           version="ci-${GITHUB_SHA::8}"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then version="${GITHUB_REF_NAME#*/v}"; fi
-          # The source label links the package to this repository on first publish.
+          # The source label links the package to this repository on first push.
           docker build --pull \
             --build-arg IMAGE_VERSION="$version" \
             --label org.opencontainers.image.source="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --label org.opencontainers.image.revision="$GITHUB_SHA" \
             -t "$IMAGE:ci" "images/$IMAGE"
 
+      - name: Push the candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          candidate="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE:$CANDIDATE_TAG" # registry paths are lower case
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker tag "$IMAGE:ci" "$candidate"
+          docker push "$candidate"
+          echo "Pushed \`$candidate\` for testing" >> "$GITHUB_STEP_SUMMARY"
+
+  smoke:
+    needs: [select, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read # pull the candidate
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.select.outputs.images) }}
+    env:
+      IMAGE: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Pull the candidate
+        # A fresh runner gets the image from the registry, as a project does.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          candidate="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE:$CANDIDATE_TAG"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker pull "$candidate"
+          echo "CANDIDATE=$candidate" >> "$GITHUB_ENV"
+
       - name: Smoke test
         # As the runner's own user and as an arbitrary one: images must work for any UID.
         run: |
           for user in "$(id -u):$(id -g)" 12345:12345; do
             echo "::group::Smoke test as $user"
-            docker run --rm --user "$user" -v "$PWD/images/$IMAGE/smoke.sh:/smoke.sh:ro" "$IMAGE:ci" bash /smoke.sh
+            docker run --rm --pull never --user "$user" \
+              -v "$PWD/images/$IMAGE/smoke.sh:/smoke.sh:ro" "$CANDIDATE" bash /smoke.sh
             echo "::endgroup::"
           done
 
+  publish:
+    needs: [select, smoke]
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      packages: write # tag the tested candidate
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.select.outputs.images) }}
+    env:
+      IMAGE: ${{ matrix.image }}
+    steps:
       - name: Publish
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        # Adds tags to the image the smoke test passed, in the registry: same
+        # digest, nothing rebuilt or pulled.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE" # registry paths are lower case
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             tags=("${GITHUB_REF_NAME#*/v}")
           else
@@ -127,8 +187,9 @@ jobs:
             tags=(latest "sha-${GITHUB_SHA::8}")
           fi
           echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          args=()
+          for tag in "${tags[@]}"; do args+=(--tag "$image:$tag"); done
+          docker buildx imagetools create "${args[@]}" "$image:$CANDIDATE_TAG"
           for tag in "${tags[@]}"; do
-            docker tag "$IMAGE:ci" "$image:$tag"
-            docker push "$image:$tag"
             echo "Published \`$image:$tag\`" >> "$GITHUB_STEP_SUMMARY"
           done
