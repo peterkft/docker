@@ -16,6 +16,16 @@ npm --version
 echo "zig $(zig version)"
 cargo-zigbuild --version
 
+# Programs built here need this glibc or newer, so the base image decides which
+# systems they run on: Ubuntu 22.04 (glibc 2.35) and newer. A newer base drops
+# older systems; change this only on purpose.
+glibc="$(getconf GNU_LIBC_VERSION)"
+echo "$glibc"
+if [[ "$glibc" != "glibc 2.35" ]]; then
+  echo "Expected glibc 2.35 (Ubuntu 22.04), found $glibc" >&2
+  exit 1
+fi
+
 # The libraries Tauri links against on Linux.
 pkg-config --print-errors --exists webkit2gtk-4.1 ayatana-appindicator3-0.1 librsvg-2.0 openssl
 
