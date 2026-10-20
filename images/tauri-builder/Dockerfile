@@ -4,7 +4,7 @@
 # and the consumer mounts its source at /src.
 #
 # Every download is pinned to a version and its SHA-256; change both together.
-FROM ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
+FROM ubuntu:26.04@sha256:c098726dd9b9733f3e885f8de0ef375206a311b0a317eadc40d347b1115fb944
 
 LABEL org.opencontainers.image.title="tauri-builder" \
       org.opencontainers.image.description="Builds Tauri 2 apps and static Linux binaries; runs as any user"
