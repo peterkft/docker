@@ -1,0 +1,17 @@
+# One grouped PR a month for the pinned actions, one for the base images.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: docker
+    directories: ["/images/*"]
+    schedule:
+      interval: monthly
+    groups:
+      base-images:
+        patterns: ["*"]
