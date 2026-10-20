@@ -2,8 +2,9 @@
 # GitHub's container registry. The folder name is the image name.
 #   push to a branch     build and smoke-test the images whose folder changed
 #                        (all of them when this workflow changes)
-#   tag <image>/vX.Y.Z   build, smoke-test and publish that image as
-#                        ghcr.io/<owner>/<image>:X.Y.Z and :latest
+#   push to main         the same, then publish each image built as
+#                        ghcr.io/<owner>/<image>:latest and :sha-<commit>
+#   tag <image>/vX.Y.Z   build, smoke-test and publish that image as :X.Y.Z
 #   manual run           build and smoke-test one image, or all of them
 name: Images
 
@@ -114,15 +115,20 @@ jobs:
           done
 
       - name: Publish
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$IMAGE" # registry paths are lower case
-          version="${GITHUB_REF_NAME#*/v}"
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            tags=("${GITHUB_REF_NAME#*/v}")
+          else
+            # main: the newest image, and a tag to pin it by commit.
+            tags=(latest "sha-${GITHUB_SHA::8}")
+          fi
           echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          for tag in "$version" latest; do
+          for tag in "${tags[@]}"; do
             docker tag "$IMAGE:ci" "$image:$tag"
             docker push "$image:$tag"
+            echo "Published \`$image:$tag\`" >> "$GITHUB_STEP_SUMMARY"
           done
-          echo "Published \`$image:$version\`" >> "$GITHUB_STEP_SUMMARY"

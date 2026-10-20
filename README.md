@@ -6,7 +6,7 @@ Generic build images that projects build inside. GitHub Actions builds, smoke-te
 
 | Image | What's in it | Current version |
 | --- | --- | --- |
-| [`tauri-builder`](images/tauri-builder/Dockerfile) | Ubuntu 22.04, Rust (with clippy, rustfmt and the x86_64 and aarch64 musl targets), Node 24, zig with cargo-zigbuild, and the Linux libraries Tauri 2 needs. Builds Tauri apps, and static Linux binaries for x86_64 and aarch64. Linux packages built in it run on Ubuntu 22.04 and newer. | not published yet |
+| [`tauri-builder`](images/tauri-builder/Dockerfile) | Ubuntu 22.04, Rust (with clippy, rustfmt and the x86_64 and aarch64 musl targets), Node 24, zig with cargo-zigbuild, and the Linux libraries Tauri 2 needs. Builds Tauri apps, and static Linux binaries for x86_64 and aarch64. Linux packages built in it run on Ubuntu 22.04 and newer. | `:latest` from `main`; no version tags yet |
 
 ## Layout
 
@@ -45,7 +45,8 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/src" \
 
 ## Versions
 
-- **Image versions:** each image has its own, set by a git tag `<image>/vX.Y.Z`.
+- **Published tags:** every push to `main` publishes each image it built as `:latest` and `:sha-<commit>` (the first 8 characters of the commit). Projects can follow `:latest`, or pin a `:sha-` tag to stay on one build.
+- **Version tags (optional):** a git tag `<image>/vX.Y.Z` publishes `:X.Y.Z`.
   - Bump the patch version for a rebuild or a security update.
   - Bump the minor version when a toolchain version changes.
   - Bump the major version when the image contract changes.
@@ -62,15 +63,15 @@ docker run --rm --user "$(id -u):$(id -g)" \
 
 A project can try a local build before it's published by pointing its image setting at `tauri-builder:dev`. For GitLane, that's `GITLANE_BUILDER_IMAGE=tauri-builder:dev`.
 
-## Releasing a new version
+## Publishing
 
-1. Push the change. The Images workflow builds the changed images and runs their `smoke.sh` as two different non-root users. Watch it with `gh run watch`.
-2. When it passes on `main`, tag and push:
+1. Push the change to a branch. The Images workflow builds the changed images and runs their `smoke.sh` as two different non-root users. Watch it with `gh run watch`.
+2. Merge it into `main`. That run publishes `:latest` and `:sha-<commit>` for each image it built.
+3. Optionally, to give a build a version, tag and push:
    ```bash
    git tag tauri-builder/v1.0.0 && git push origin tauri-builder/v1.0.0
    ```
-   The tag builds and tests the image again, then publishes `:1.0.0` and `:latest`.
-3. Update the version in the table above, and in each project that should move to it.
+   The tag builds and tests the image again, then publishes `:1.0.0`. Update the table above, and the projects that should pin it.
 
 ## Adding an image
 
