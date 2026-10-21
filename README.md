@@ -52,7 +52,7 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/src" \
   - Bump the minor version when a toolchain version changes.
   - Bump the major version when the image contract changes.
 - **Tool versions:** every download in a Dockerfile is pinned to a version and its SHA-256. Change both together.
-- **What Dependabot updates:** the base image digest and the pinned actions. Toolchain versions (Rust, Node, zig, cargo-zigbuild) are bumped by hand.
+- **What Dependabot updates:** the base image digest and the pinned actions. It doesn't move an image to a new base release, because that changes which systems the programs built in it run on; each image's `smoke.sh` checks its glibc. Toolchain versions (Rust, Node, zig, cargo-zigbuild) and base releases are changed by hand.
 
 ## Building and testing locally
 

@@ -15,3 +15,9 @@ updates:
     groups:
       base-images:
         patterns: ["*"]
+    ignore:
+      # A new base release (ubuntu 22.04 → 26.04) changes which systems the
+      # programs built in an image run on: that's moved by hand. Digest updates
+      # (security fixes for the same release) still come.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
