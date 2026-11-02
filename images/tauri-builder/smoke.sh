@@ -7,6 +7,15 @@
 set -euo pipefail
 
 echo "tauri-builder ${BUILDER_IMAGE_VERSION:-unknown}, running as $(id -u):$(id -g)"
+
+# A build that needs a name for its UID adds it, as the image contract says.
+if ! getent passwd "$(id -u)" >/dev/null; then
+  echo "builder:x:$(id -u):$(id -g)::$HOME:/bin/bash" >> /etc/passwd
+fi
+if ! getent group "$(id -g)" >/dev/null; then
+  echo "builder:x:$(id -g):" >> /etc/group
+fi
+getent passwd "$(id -u)"
 rustc --version
 cargo --version
 cargo clippy --version
