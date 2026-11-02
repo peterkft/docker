@@ -15,6 +15,9 @@ LABEL org.opencontainers.image.title="tauri-builder" \
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Build tools and Tauri 2's Linux prerequisites; patchelf is for AppImages.
+# git-lfs, gnupg and openssh-client let projects test what they do with Git
+# LFS and with GPG- and SSH-signed commits; git-lfs's filters are set up for
+# every repository, as `git lfs install` would for a user.
 # Package versions come from the digest-pinned Ubuntu release; pinning each one
 # would break the build whenever Ubuntu ships a security update.
 # hadolint ignore=DL3008
@@ -22,8 +25,10 @@ RUN export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         build-essential ca-certificates curl wget file git pkg-config xz-utils patchelf \
+        git-lfs gnupg openssh-client \
         libssl-dev libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev; \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/*; \
+    git lfs install --system --skip-repo
 
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \

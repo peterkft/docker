@@ -6,7 +6,7 @@ Generic build images that projects build inside. GitHub Actions builds, smoke-te
 
 | Image | What's in it | Current version |
 | --- | --- | --- |
-| [`tauri-builder`](images/tauri-builder/Dockerfile) | Ubuntu 22.04, Rust (with clippy, rustfmt and the x86_64 and aarch64 musl targets), Node 24, zig with cargo-zigbuild, and the Linux libraries Tauri 2 needs. Builds Tauri apps, and static Linux binaries for x86_64 and aarch64. Linux packages built in it run on Ubuntu 22.04 and newer. | `:latest` from `main`; no version tags yet |
+| [`tauri-builder`](images/tauri-builder/Dockerfile) | Ubuntu 22.04, Rust (with clippy, rustfmt and the x86_64 and aarch64 musl targets), Node 24, zig with cargo-zigbuild, the Linux libraries Tauri 2 needs, and git with Git LFS, GnuPG and OpenSSH's client for testing what a project does with them. Builds Tauri apps, and static Linux binaries for x86_64 and aarch64. Linux packages built in it run on Ubuntu 22.04 and newer. | `:latest` from `main`; no version tags yet |
 
 ## Layout
 
