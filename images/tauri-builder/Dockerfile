@@ -15,6 +15,9 @@ LABEL org.opencontainers.image.title="tauri-builder" \
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Build tools and Tauri 2's Linux prerequisites; patchelf is for AppImages.
+# git-lfs, gnupg and openssh-client let projects test what they do with Git
+# LFS and with GPG- and SSH-signed commits; git-lfs's filters are set up for
+# every repository, as `git lfs install` would for a user.
 # Package versions come from the digest-pinned Ubuntu release; pinning each one
 # would break the build whenever Ubuntu ships a security update.
 # hadolint ignore=DL3008
@@ -22,8 +25,10 @@ RUN export DEBIAN_FRONTEND=noninteractive; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         build-essential ca-certificates curl wget file git pkg-config xz-utils patchelf \
+        git-lfs gnupg openssh-client \
         libssl-dev libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev; \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/*; \
+    git lfs install --system --skip-repo
 
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -77,14 +82,16 @@ RUN curl -fsSL -o /tmp/zig.tar.xz \
 
 # The image contract: any UID can run the image, so the home and cache folders
 # are writable by everyone (the Rust homes were made so above). The host user
-# owns the mounted source, so git trusts every folder. Without
-# APPIMAGE_EXTRACT_AND_RUN, the AppImage tools Tauri downloads need FUSE, which
-# containers don't have.
+# owns the mounted source, so git trusts every folder. OpenSSH's tools won't
+# run as a UID /etc/passwd doesn't name, so /etc/passwd and /etc/group are
+# writable too, for a build to add its user. Without APPIMAGE_EXTRACT_AND_RUN,
+# the AppImage tools Tauri downloads need FUSE, which containers don't have.
 ENV HOME=/home/builder \
     LANG=C.UTF-8 \
     APPIMAGE_EXTRACT_AND_RUN=1
 RUN mkdir -p /home/builder/.cache /home/builder/.npm /cache; \
     chmod 1777 /home/builder /home/builder/.cache /home/builder/.npm /cache; \
+    chmod a+w /etc/passwd /etc/group; \
     git config --system --add safe.directory '*'
 
 # Last, so a new version doesn't invalidate the layers above.

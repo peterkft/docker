@@ -6,7 +6,7 @@ Generic build images that projects build inside. GitHub Actions builds, smoke-te
 
 | Image | What's in it | Current version |
 | --- | --- | --- |
-| [`tauri-builder`](images/tauri-builder/Dockerfile) | Ubuntu 22.04, Rust (with clippy, rustfmt and the x86_64 and aarch64 musl targets), Node 24, zig with cargo-zigbuild, and the Linux libraries Tauri 2 needs. Builds Tauri apps, and static Linux binaries for x86_64 and aarch64. Linux packages built in it run on Ubuntu 22.04 and newer. | `:latest` from `main`; no version tags yet |
+| [`tauri-builder`](images/tauri-builder/Dockerfile) | Ubuntu 22.04, Rust (with clippy, rustfmt and the x86_64 and aarch64 musl targets), Node 24, zig with cargo-zigbuild, the Linux libraries Tauri 2 needs, and git with Git LFS, GnuPG and OpenSSH's client for testing what a project does with them. Builds Tauri apps, and static Linux binaries for x86_64 and aarch64. Linux packages built in it run on Ubuntu 22.04 and newer. | `:latest` from `main`; no version tags yet |
 
 ## Layout
 
@@ -31,6 +31,7 @@ Every image keeps these promises, so a project's build script works with any of 
 | Home | `HOME=/home/builder`, writable by any user. |
 | Caches a project may mount | `/home/builder/.cache` and `/home/builder/.npm`; in Rust images also `/usr/local/cargo/registry` and `/usr/local/cargo/git`. Each exists in the image and is writable by any user, so a new named volume starts with those permissions. |
 | Scratch | `/cache`, writable by any user, for example for `CARGO_TARGET_DIR=/cache/target`. |
+| User name | `/etc/passwd` and `/etc/group` are writable by any user, so a build that needs a name for its UID (OpenSSH's tools refuse to run without one) can add it: `getent passwd "$(id -u)" \|\| echo "builder:x:$(id -u):$(id -g)::$HOME:/bin/bash" >> /etc/passwd`. |
 | Mounting volumes | Mount each volume on one of the folders above, not on a path below it. A new volume mounted on a path the image doesn't have, such as `/cache/target`, is owned by root, so a non-root user can't write to it. |
 | Version | `BUILDER_IMAGE_VERSION` in the environment, plus the OCI labels `version`, `source` and `revision`. |
 | Entrypoint | None. The project passes the command. |
