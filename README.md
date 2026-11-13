@@ -15,7 +15,9 @@ Generic build images that projects build inside. GitHub Actions builds, smoke-te
 images/
 └── <image>/
     ├── Dockerfile   the image; the folder name is the image name (lower case)
-    └── smoke.sh     run inside the image, pulled from the registry, after every build
+    ├── smoke.sh     run inside the image, pulled from the registry, after every build
+    └── ...          anything else the Dockerfile copies in (gcc-arm-11.3: its Python
+                     requirements; requirements.in says how to recompile requirements.txt)
 .github/
 ├── workflows/images.yml   builds, tests and publishes the images
 └── dependabot.yml         monthly updates for the actions and the base images
@@ -47,7 +49,7 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/src" \
 
 ## Versions
 
-- **Published tags:** every push to `main` publishes each image it built as `:latest` and `:sha-<commit>` (the first 8 characters of the commit), once its smoke test passes. Projects can follow `:latest`, or pin a `:sha-` tag to stay on one build.
+- **Published tags:** every push to `main` publishes each image it built as `:latest`, once its smoke test passes. Projects use `:latest`, or a version tag (below) to stay on one build.
 - **Test tags:** every run first pushes each image it builds as `:ci-<run id>`, and the smoke test pulls that tag. The run's summary names it, so a project can try a branch's image before it's merged. Don't pin one: they're for testing and can be deleted.
 - **Version tags (optional):** a git tag `<image>/vX.Y.Z` publishes `:X.Y.Z`.
   - Bump the patch version for a rebuild or a security update.
@@ -91,7 +93,7 @@ A project can try a local build before it's published by pointing its image sett
 ## Publishing
 
 1. Push the change to a branch. The Images workflow builds the changed images and pushes each as `:ci-<run id>`. A separate job then pulls it on a fresh runner, the way a project gets it, and runs its `smoke.sh` as two different non-root users. Watch it with `gh run watch`.
-2. Merge it into `main`. That run does the same, then tags each image that passed as `:latest` and `:sha-<commit>`. The tags go on the image the smoke test pulled; nothing is rebuilt.
+2. Merge it into `main`. That run does the same, then tags each image that passed as `:latest`. The tags go on the image the smoke test pulled; nothing is rebuilt.
 3. Optionally, to give a build a version, tag and push:
    ```bash
    git tag tauri-builder/v1.0.0 && git push origin tauri-builder/v1.0.0

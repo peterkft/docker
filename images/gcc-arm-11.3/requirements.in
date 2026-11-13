@@ -70,6 +70,7 @@ testrail-api==1.7.1
 
 # flake8 3.8 and pyocd 0.27 import pkg_resources, which setuptools 70 removed.
 setuptools==59.6.0
+wheel<0.46  # 0.46 and newer need setuptools 70.1
 
 # Dependencies the tools above don't cap, held at releases they work with.
 anyio<4                  # 4's pytest plugin needs pytest 7

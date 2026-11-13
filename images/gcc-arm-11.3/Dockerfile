@@ -10,7 +10,7 @@
 #
 # PC-lint Plus is licensed, so it isn't in the image: a project mounts its own
 # copy on /opt/pc-lint (PC_LINT_HOME), for example
-#   -v "$HOME/firmware_tools/pc-lint:/opt/pc-lint:ro"
+#   -v "$PWD/../firmware_tools/pc-lint:/opt/pc-lint:ro"
 FROM ubuntu:22.04@sha256:0a9887931b0e38af2e3487ed39e29436b0535c4f3f52e57745baaf79d1898956
 
 LABEL org.opencontainers.image.title="gcc-arm-11.3" \
@@ -23,7 +23,8 @@ ENV TZ=Pacific/Auckland
 
 # Host build tools, and what the Python packages without a wheel for Python
 # 3.10 need to build (python3-dev, libpq-dev for psycopg2). The toolchain's gdb
-# links libncursesw.so.5 and libtinfo.so.5.
+# links libncursesw.so.5 and libtinfo.so.5. pyocd and pyusb need libusb-1.0
+# to talk to debug probes.
 # Package versions come from the digest-pinned Ubuntu release; pinning each one
 # would break the build whenever Ubuntu ships a security update.
 # hadolint ignore=DL3008
@@ -32,7 +33,7 @@ RUN export DEBIAN_FRONTEND=noninteractive; \
     apt-get install -y --no-install-recommends \
         build-essential ca-certificates cmake curl file git ninja-build xz-utils tzdata \
         libncurses-dev libncursesw5 libtinfo5 libssl-dev libpq-dev \
-        python3 python3-dev python3-venv uncrustify; \
+        python3 python3-dev python3-venv uncrustify libusb-1.0-0; \
     rm -rf /var/lib/apt/lists/*; \
     ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime; \
     echo "$TZ" > /etc/timezone
@@ -43,7 +44,7 @@ RUN export DEBIAN_FRONTEND=noninteractive; \
 # version doesn't compile; this release's newlib is 4.2.0.
 ARG ARM_GCC_VERSION=11.3.rel1
 ARG ARM_GCC_SHA256=d420d87f68615d9163b99bbb62fe69e85132dc0a8cd69fca04e813597fe06121
-ENV ARM_GCC_HOME=/opt/arm-gnu-toolchain-11.3.rel1
+ENV ARM_GCC_HOME=/opt/arm-gnu-toolchain-${ARM_GCC_VERSION}
 RUN curl -fsSL -o /tmp/arm-gcc.tar.xz \
         "https://developer.arm.com/-/media/Files/downloads/gnu/${ARM_GCC_VERSION}/binrel/arm-gnu-toolchain-${ARM_GCC_VERSION}-x86_64-arm-none-eabi.tar.xz"; \
     echo "${ARM_GCC_SHA256}  /tmp/arm-gcc.tar.xz" | sha256sum -c -; \
@@ -77,7 +78,8 @@ RUN curl -fsSL -o /tmp/cpputest.tar.gz \
     chmod -R a+w "${CPPUTEST_HOME}"
 
 # The Python tools, in a virtual environment in /opt/venv that's first on PATH
-# (python, pip, pytest, ...). Every package, dependencies too, comes from
+# (python, pip, pytest, ...), writable by everyone so a project can add
+# packages (for example mypy's stubs) as any user. Every package, dependencies too, comes from
 # requirements.txt with its hash. pip builds the ones without a wheel for
 # Python 3.10 with setuptools < 70 (build-constraints.txt says why).
 COPY requirements.txt build-constraints.txt /tmp/python/
@@ -88,7 +90,8 @@ RUN python3 -m venv "${VIRTUAL_ENV}"; \
         pip install --no-cache-dir --disable-pip-version-check --require-hashes --no-deps \
         -r /tmp/python/requirements.txt; \
     pip check; \
-    rm -rf /tmp/python
+    rm -rf /tmp/python; \
+    chmod -R a+w "${VIRTUAL_ENV}"
 
 # PC-lint Plus goes here when a project mounts it (see the top of this file).
 ENV PC_LINT_HOME=/opt/pc-lint

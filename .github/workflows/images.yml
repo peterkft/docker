@@ -5,7 +5,7 @@
 #                        ghcr.io/<owner>/<image>:ci-<run id>; a separate job
 #                        pulls it on a fresh runner and smoke-tests it
 #   push to main         the same, then tag each image that passed as
-#                        :latest and :sha-<commit>
+#                        :latest
 #   tag <image>/vX.Y.Z   the same for that image, tagged :X.Y.Z
 #   manual run           build, push and smoke-test one image, or all of
 #                        them; on main, also tag them as on a push to main
@@ -183,8 +183,7 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             tags=("${GITHUB_REF_NAME#*/v}")
           else
-            # main: the newest image, and a tag to pin it by commit.
-            tags=(latest "sha-${GITHUB_SHA::8}")
+            tags=(latest) # main: the newest image
           fi
           echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           args=()

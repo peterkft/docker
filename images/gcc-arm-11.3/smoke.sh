@@ -27,7 +27,7 @@ if [[ "$glibc" != "glibc 2.35" ]]; then
 fi
 
 # Home, caches and scratch must be writable by whoever runs the image.
-for dir in "$HOME" "$HOME/.cache" "$HOME/.npm" /cache "$CPPUTEST_HOME"; do
+for dir in "$HOME" "$HOME/.cache" "$HOME/.npm" /cache "$CPPUTEST_HOME" /opt/venv/lib/python3.10/site-packages; do
   touch "$dir/.smoke-$$"
   rm "$dir/.smoke-$$"
 done
@@ -125,6 +125,8 @@ data = b"hello hello hello" * 10
 assert heatshrink2.decompress(heatshrink2.compress(data)) == data
 ec.generate_private_key(ec.SECP256R1(), default_backend())
 pyvisa.ResourceManager("@py").close()
+import usb.backend.libusb1
+assert usb.backend.libusb1.get_backend() is not None, "pyusb found no libusb-1.0"
 print("psycopg2", psycopg2.__version__)
 EOF
 
