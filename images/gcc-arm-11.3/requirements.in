@@ -1,0 +1,82 @@
+# The Python tools in the gcc-arm-11.3 image: the versions firmware projects
+# used on Ubuntu 18.04 (Python 3.6), kept wherever they work on Ubuntu 22.04's
+# Python 3.10. requirements.txt is compiled from this file and pins every
+# package, dependencies too, with its SHA-256; recompile it after a change:
+#
+#   cd images/gcc-arm-11.3
+#   uv pip compile --python-version 3.10 --python-platform x86_64-unknown-linux-gnu \
+#     --generate-hashes --no-header --emit-index-url \
+#     --build-constraint build-constraints.txt -o requirements.txt requirements.in
+#
+# Moved up from the 18.04 versions, each to the oldest release that works on 3.10:
+#   heatshrink2  0.9.0 → 0.11.0  0.9.0's generated C doesn't build on 3.10;
+#                                0.11.0 is the same source, regenerated
+#   intelHex     2.2.1 → 2.3.0   2.2.1 calls array.tostring, gone in 3.9
+#   mypy         0.782 → 0.910   0.782 needs typed-ast < 1.5, which doesn't
+#                                load on 3.10 and breaks black
+#   pytest       5.4.2 → 6.2.5   older releases fail on 3.10 ("required field
+#                                lineno missing from alias")
+
+bitarray==1.4.2
+black==19.10b0
+boto3==1.14.23
+can-isotp==1.6
+cbor2==5.2.0
+click==7.1.2
+coverage==5.2
+cryptography==2.9.2
+dash==1.14.0
+docformatter==1.3.1
+flake8-bugbear==20.1.4
+flake8-builtins==1.5.3
+flake8-debugger==3.2.1
+flake8-docstrings==1.5.0
+flake8-eradicate==0.4.0
+flake8-formatter-abspath==1.0.1
+flake8-html==0.4.1
+flake8==3.8.3
+fpvgcc==1.0.0
+gcovr==4.2
+geopy==2.0.0
+gmplot==1.4.1
+heatshrink2==0.11.0
+intelHex==2.3.0
+invoke==1.4.1
+isort==4.3.21
+junitparser==1.4.1
+jupyter==1.0.0
+mypy==0.910
+paho-mqtt==1.5.0
+pem==20.1.0
+psutil==5.7.2
+psycopg2==2.8.5
+pydocstyle==5.0.2
+pylint==2.5.3
+pyocd==0.27.1
+pyserial==3.4
+pytest-cov==2.8.1
+pytest-html==2.1.1
+pytest-xdist==1.32.0
+pytest==6.2.5
+python-can==3.3.3
+python-jenkins==1.7.0
+pythoncrc==1.21
+pytz==2021.1
+pyusb==1.0.2
+pyvisa-py==0.4.1
+pyvisa==1.10.1
+pyyaml==5.3.1
+testrail-api==1.7.1
+
+# flake8 3.8 and pyocd 0.27 import pkg_resources, which setuptools 70 removed.
+setuptools==59.6.0
+
+# Dependencies the tools above don't cap, held at releases they work with.
+anyio<4                  # 4's pytest plugin needs pytest 7
+cmsis-pack-manager<0.3   # pyocd: 0.3 has no wheel (needs Rust); 0.4+ needs pyyaml 6
+flask<2                  # dash 1.14
+itsdangerous<2.1         # flask 1
+jinja2<3.1               # flask 1 and flake8-html import names 3.1 removed
+markupsafe<2.1           # jinja2 2
+typed-ast>=1.5           # black 19.10b0: older releases don't load on 3.10
+werkzeug<2.1             # flask 1

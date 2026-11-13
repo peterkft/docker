@@ -1,0 +1,4 @@
+# Used only while pip builds packages that have no wheel for Python 3.10 (for
+# example cbor2 5.2.0): their setup.py imports pkg_resources, which setuptools
+# 70 removed.
+setuptools<70
