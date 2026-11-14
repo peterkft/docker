@@ -48,7 +48,11 @@ cd "$work"
 # and a Cortex-M4 program compiled, linked against newlib-nano and checked.
 [[ "$(arm-none-eabi-gcc -dumpversion)" == 11.3.1 ]]
 "$ARM_GCC_HOME/bin/arm-none-eabi-gcc" --version | head -n 1
-arm-none-eabi-gdb --version | head -n 1 # needs libncursesw5 and libtinfo5
+# arm-none-eabi-gdb is Ubuntu's gdb-multiarch, with Ubuntu's Python 3.10.
+arm-none-eabi-gdb --version | head -n 1
+gdb_python="$(arm-none-eabi-gdb -batch -ex 'python import gdb, json, sys; print(sys.version.split()[0])')"
+echo "gdb python $gdb_python"
+[[ "$gdb_python" == 3.10.* ]]
 newlib="$(echo '#include <newlib.h>' | arm-none-eabi-gcc -E -dM - | sed -n 's/^#define _NEWLIB_VERSION //p')"
 echo "newlib $newlib"
 [[ "$newlib" == '"4.2.0"' ]]
@@ -72,6 +76,19 @@ arm-none-eabi-objcopy -O ihex firmware.elf firmware.hex
 info="$(file -b firmware.elf)"
 echo "firmware.elf: $info"
 [[ "$info" == *"ELF 32-bit LSB executable, ARM"* ]]
+# gdb reads the firmware as Arm code.
+arch="$(arm-none-eabi-gdb -batch -ex 'file firmware.elf' -ex 'show architecture')"
+echo "gdb: $arch"
+[[ "$arch" == *'(currently "arm'* ]]
+
+# PC-lint Plus, when a local build copied it in or a project mounted it.
+if [[ -e "$PC_LINT_HOME/linux/pclp64_linux" ]]; then
+  printf 'int main(void) { return 0; }\n' > lint.c
+  "$PC_LINT_HOME/linux/pclp64_linux" -b lint.c
+  echo "PC-lint Plus ran from $PC_LINT_HOME"
+else
+  echo "PC-lint Plus isn't in $PC_LINT_HOME"
+fi
 
 # CppUTest: a test built on the host against the libraries in the image.
 cat > test.cpp <<'EOF'

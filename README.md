@@ -6,7 +6,7 @@ Generic build images that projects build inside. GitHub Actions builds, smoke-te
 
 | Image | What's in it | Current version |
 | --- | --- | --- |
-| [`gcc-arm-11.3`](images/gcc-arm-11.3/Dockerfile) | Ubuntu 22.04, the Arm GNU Toolchain 11.3.rel1 (`arm-none-eabi`, with newlib's version header filled in), CppUTest 4.0 built in `$CPPUTEST_HOME`, CMake, Ninja, uncrustify, and the firmware projects' Python tools (pytest, pylint, flake8, black, mypy, pyocd, …) pinned in [`requirements.in`](images/gcc-arm-11.3/requirements.in). Builds and tests Cortex-M firmware. PC-lint Plus is licensed, so it isn't included: mount your copy on `/opt/pc-lint` (`$PC_LINT_HOME`). Replaces the Ubuntu 18.04 `firmware_tools` image. | `:latest` from `main`; no version tags yet |
+| [`gcc-arm-11.3`](images/gcc-arm-11.3/Dockerfile) | Ubuntu 22.04, the Arm GNU Toolchain 11.3.rel1 (`arm-none-eabi`, with newlib's version header filled in), CppUTest 4.0 built in `$CPPUTEST_HOME`, CMake, Ninja, uncrustify, and the firmware projects' Python tools (pytest, pylint, flake8, black, mypy, pyocd, …) pinned in [`requirements.in`](images/gcc-arm-11.3/requirements.in). Builds and tests Cortex-M firmware. PC-lint Plus is licensed, so the published image doesn't include it: mount your copy on `/opt/pc-lint` (`$PC_LINT_HOME`), or copy it into a local build (see [Building and testing locally](#building-and-testing-locally)). Replaces the Ubuntu 18.04 `firmware_tools` image. | `:latest` from `main`; no version tags yet |
 | [`tauri-builder`](images/tauri-builder/Dockerfile) | Ubuntu 22.04, Rust (with clippy, rustfmt and the x86_64 and aarch64 musl targets), Node 24, zig with cargo-zigbuild, the Linux libraries Tauri 2 needs, and git with Git LFS, GnuPG and OpenSSH's client for testing what a project does with them. Builds Tauri apps, and static Linux binaries for x86_64 and aarch64. Linux packages built in it run on Ubuntu 22.04 and newer. | `:latest` from `main`; no version tags yet |
 
 ## Layout
@@ -69,7 +69,7 @@ docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/src" \
 | Source | mounted at `/home/working` | mounted at `/src` |
 | `ARM_GCC_HOME` | `/root/firmware_tools/gcc-arm-none-eabi-7-2018-q2-update` | `/opt/arm-gnu-toolchain-11.3.rel1`, also on `PATH` |
 | `CPPUTEST_HOME` | `/root/firmware_tools/cpputest`, source only | `/opt/cpputest`, already built (`lib/libCppUTest.a`, `lib/libCppUTestExt.a`) and writable |
-| `PC_LINT_HOME` | `/root/firmware_tools/pc-lint` | `/opt/pc-lint`, empty: mount your copy, for example `-v "$PWD/../firmware_tools/pc-lint:/opt/pc-lint:ro"` |
+| `PC_LINT_HOME` | `/root/firmware_tools/pc-lint` | `/opt/pc-lint`, empty in the published image: mount your copy, for example `-v "$PWD/../firmware_tools/pc-lint:/opt/pc-lint:ro"`, or build locally with it |
 | Python tools | `pip3` into the system Python | a virtual environment in `/opt/venv`, first on `PATH` |
 
 Four Python tools moved to the oldest release that works on Python 3.10, and their results can differ: pytest 5.4.2 → 6.2.5, mypy 0.782 → 0.910 (it may ask for stub packages such as `types-PyYAML`), intelHex 2.2.1 → 2.3.0 and heatshrink2 0.9.0 → 0.11.0 (the same code). [`requirements.in`](images/gcc-arm-11.3/requirements.in) says why each one moved. black stays at 19.10b0, so formatting doesn't change.
@@ -89,6 +89,14 @@ docker run --rm --user "$(id -u):$(id -g)" \
 ```
 
 A project can try a local build before it's published by pointing its image setting at `tauri-builder:dev`. For GitLane, that's `GITLANE_BUILDER_IMAGE=tauri-builder:dev`.
+
+`gcc-arm-11.3` can copy PC-lint Plus in, from a copy at `images/pc-lint` (git ignores it; only its `linux/` folder goes in) to `/opt/pc-lint/linux`. Without `--build-context pc-lint=...`, as in CI, `/opt/pc-lint` stays empty. PC-lint Plus is licensed, so never push an image built with it.
+
+```bash
+docker build --build-context pc-lint=images/pc-lint -t gcc-arm-11.3:pc-lint images/gcc-arm-11.3
+docker run --rm --user "$(id -u):$(id -g)" \
+  -v "$PWD/images/gcc-arm-11.3/smoke.sh:/smoke.sh:ro" gcc-arm-11.3:pc-lint bash /smoke.sh
+```
 
 ## Publishing
 
